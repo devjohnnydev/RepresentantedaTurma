@@ -30,15 +30,6 @@ export default function Dashboard() {
   const currentPhase = phaseData?.phase || "registration";
   const isAdmin = user?.email?.toLowerCase().includes("johnny") || false;
 
-  // Render Logic
-  if (isAuthLoading || isPhaseLoading || isCandidatesLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-12 h-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // Confetti effect for results page
   useEffect(() => {
     if (currentPhase === "results") {
@@ -68,6 +59,15 @@ export default function Dashboard() {
       return () => clearInterval(interval);
     }
   }, [currentPhase]);
+
+  // Render Logic
+  if (isAuthLoading || isPhaseLoading || isCandidatesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
