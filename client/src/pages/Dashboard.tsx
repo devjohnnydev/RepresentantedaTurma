@@ -108,8 +108,27 @@ function RegistrationView({ candidates }: { candidates: any[] }) {
     },
   });
 
-  const onSubmit = (data: InsertCandidate) => {
-    createCandidate(data, {
+  const onSubmit = async (data: InsertCandidate) => {
+    const photoFile = form.getValues("photoFile" as any);
+    let photoUrl = data.photoUrl;
+
+    if (photoFile && photoFile[0]) {
+      const formData = new FormData();
+      formData.append("file", photoFile[0]);
+      
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
+        photoUrl = result.url;
+      } catch (error) {
+        console.error("Upload failed:", error);
+      }
+    }
+
+    createCandidate({ ...data, photoUrl }, {
       onSuccess: () => {
         setOpen(false);
         form.reset();
@@ -199,20 +218,22 @@ function RegistrationView({ candidates }: { candidates: any[] }) {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="photoUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Foto (URL)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                      <p className="text-xs text-muted-foreground">Cole um link direto de uma imagem sua.</p>
-                    </FormItem>
-                  )}
-                />
+                <FormItem>
+                  <FormLabel>Sua Foto</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files;
+                        if (file) {
+                          form.setValue("photoFile" as any, file);
+                        }
+                      }} 
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">Escolha uma foto local para subir.</p>
+                </FormItem>
 
                 <FormField
                   control={form.control}

@@ -5,6 +5,29 @@ import { api } from "@shared/routes";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { z } from "zod";
 import { authStorage } from "./replit_integrations/auth/storage";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for local storage
+const storage_multer = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(process.cwd(), "client", "public", "uploads");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ 
+  storage: storage_multer,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -13,6 +36,15 @@ export async function registerRoutes(
   // Setup Auth FIRST
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // File upload route
+  app.post("/api/upload", upload.single("file"), (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    const filePath = `/uploads/${req.file.filename}`;
+    res.json({ url: filePath });
+  });
 
   // Middleware to check if user is admin
   const requireAdmin = async (req: any, res: any, next: any) => {
