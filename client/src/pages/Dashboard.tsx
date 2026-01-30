@@ -14,12 +14,14 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Plus, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, Plus, AlertCircle, CheckCircle, Trophy } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCandidateSchema, type InsertCandidate } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import confetti from "canvas-confetti";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -95,8 +97,9 @@ export default function Dashboard() {
 function RegistrationView({ candidates }: { candidates: any[] }) {
   const { mutate: createCandidate, isPending } = useCreateCandidate();
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
 
-  const form = useForm<InsertCandidate>({
+  const form = useForm<InsertCandidate & { photoFile?: FileList }>({
     resolver: zodResolver(insertCandidateSchema),
     defaultValues: {
       name: "",
@@ -108,30 +111,43 @@ function RegistrationView({ candidates }: { candidates: any[] }) {
     },
   });
 
-  const onSubmit = async (data: InsertCandidate) => {
-    const photoFile = form.getValues("photoFile" as any);
-    let photoUrl = data.photoUrl;
+  const onSubmit = async (values: InsertCandidate & { photoFile?: FileList }) => {
+    let photoUrl = values.photoUrl;
 
-    if (photoFile && photoFile[0]) {
+    if (values.photoFile && values.photoFile[0]) {
       const formData = new FormData();
-      formData.append("file", photoFile[0]);
+      formData.append("file", values.photoFile[0]);
       
       try {
         const response = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         });
+        
+        if (!response.ok) throw new Error("Upload failed");
+        
         const result = await response.json();
         photoUrl = result.url;
       } catch (error) {
         console.error("Upload failed:", error);
+        toast({
+          title: "Erro no upload",
+          description: "Não foi possível enviar a foto. Tente novamente.",
+          variant: "destructive",
+        });
+        return;
       }
     }
 
-    createCandidate({ ...data, photoUrl }, {
+    const { photoFile, ...submitData } = values;
+    createCandidate({ ...submitData, photoUrl }, {
       onSuccess: () => {
         setOpen(false);
         form.reset();
+        toast({
+          title: "Sucesso!",
+          description: "Sua candidatura foi registrada e aguarda aprovação.",
+        });
       },
     });
   };
@@ -218,22 +234,25 @@ function RegistrationView({ candidates }: { candidates: any[] }) {
                   )}
                 />
 
-                <FormItem>
-                  <FormLabel>Sua Foto</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files;
-                        if (file) {
-                          form.setValue("photoFile" as any, file);
-                        }
-                      }} 
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">Escolha uma foto local para subir.</p>
-                </FormItem>
+                <FormField
+                  control={form.control}
+                  name="photoFile"
+                  render={({ field: { value, onChange, ...field } }) => (
+                    <FormItem>
+                      <FormLabel>Sua Foto</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => onChange(e.target.files)}
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">Escolha uma foto local para subir.</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
